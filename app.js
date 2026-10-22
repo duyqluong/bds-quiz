@@ -2,14 +2,18 @@
 const app = document.getElementById('app');
 const LETTERS = 'ABCD';
 const LS_WRONG = 'bds_wrong';
-const LS_STATS = 'bds_stats';
+const LS_SESSION = 'bds_session';
+const LS_HIST = 'bds_hist';
+const LS_SHUF = 'bds_shuf';
 
 const state = {
-  bank: null, mode: null, qs: [], idx: 0,
+  bank: null, mode: null, qs: [], idx: 0, origIdx: null,
   answers: {}, score: 0, done: false,
-  reveal: false, timer: null, remain: 0, shuffleOpt: true,
+  reveal: false, timer: null, remain: 0,
+  shuffleOpt: localStorage.getItem(LS_SHUF) !== '0',
 };
 
+// ---------- persistence ----------
 const getWrong = () => JSON.parse(localStorage.getItem(LS_WRONG) || '{}');
 const setWrong = w => localStorage.setItem(LS_WRONG, JSON.stringify(w));
 const markWrong = (bankKey, qi, wrong) => {
@@ -19,13 +23,51 @@ const markWrong = (bankKey, qi, wrong) => {
   setWrong(w);
 };
 
+const getHist = () => JSON.parse(localStorage.getItem(LS_HIST) || '[]');
+const pushHist = e => {
+  const h = getHist();
+  h.unshift({ ...e, at: Date.now() });
+  localStorage.setItem(LS_HIST, JSON.stringify(h.slice(0, 50)));
+};
+
+function saveSession() {
+  if (!state.mode || state.done) return;
+  localStorage.setItem(LS_SESSION, JSON.stringify({
+    bank: state.bank, mode: state.mode, qs: state.qs, origIdx: state.origIdx,
+    idx: state.idx, answers: state.answers, remain: state.remain, saved: Date.now(),
+  }));
+}
+const getSession = () => {
+  try { return JSON.parse(localStorage.getItem(LS_SESSION) || 'null'); }
+  catch { return null; }
+};
+const clearSession = () => localStorage.removeItem(LS_SESSION);
+
+function resumeSession() {
+  const s = getSession();
+  if (!s) return home();
+  state.bank = s.bank; state.mode = s.mode; state.qs = s.qs;
+  state.origIdx = s.origIdx; state.idx = s.idx; state.answers = s.answers || {};
+  state.done = false; state.reveal = false;
+  if (s.mode === 'mock') {
+    state.remain = s.remain || 3600;
+    state.score = 0;
+    startTimer();
+    showMock();
+  } else if (s.mode === 'quiz') {
+    state.score = Object.entries(s.answers).filter(([i, a]) => a === s.qs[i].a).length;
+    showQuiz();
+  } else {
+    showStudy();
+  }
+}
+
 const shuffle = a => a.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
 
 function prepQuestions(qs) {
   return qs.map(q => {
     if (!state.shuffleOpt) return { ...q };
-    const order = q.o.map((_, i) => i);
-    const shuffled = shuffle(order);
+    const shuffled = shuffle(q.o.map((_, i) => i));
     return { q: q.q, o: shuffled.map(i => q.o[i]), a: shuffled.indexOf(q.a) };
   });
 }
@@ -34,50 +76,78 @@ function header(txt) {
   document.getElementById('hdr-info').textContent = txt;
   document.querySelector('header h1').onclick = home;
 }
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const fmtDate = t => new Date(t).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
 // ---------- HOME ----------
 function home() {
   clearInterval(state.timer);
   header('');
   const w = getWrong();
+  const sess = getSession();
+  const hist = getHist();
   app.innerHTML = `
+    ${sess && !sess.done ? `
+      <div class="rev-item" style="border-color:#6ea8fe">
+        ⏸ Phiên trước chưa xong: <b>${BANKS[sess.bank].name}</b> — ${sess.mode === 'mock' ? 'Thi thử' : sess.mode === 'quiz' ? 'Luyện tập' : 'Học'}
+        (${Object.keys(sess.answers || {}).length}/${sess.qs.length} câu)
+        <div class="mode-row" style="margin-top:8px">
+          <button class="btn sm" onclick="resumeSession()">▶ Tiếp tục</button>
+          <button class="btn ghost sm" onclick="clearSession();home()">Bỏ qua</button>
+        </div>
+      </div>` : ''}
     <p class="stats">Ôn thi sát hạch chứng chỉ hành nghề môi giới BĐS — trắc nghiệm, 120 phút/phần, đậu ≥70/100.</p>
     <div class="bank-grid">
       ${Object.keys(BANKS).map(k => {
         const n = BANKS[k].qs.length;
         const wn = Object.keys(w[k] || {}).length;
+        const best = Math.max(0, ...hist.filter(h => h.bank === k).map(h => h.pct));
         return `<div class="bank-card" onclick="pickBank('${k}')">
           <h3>${BANKS[k].name}</h3>
-          <p><span class="cnt">${n}</span> câu hỏi${wn ? ` · <span style="color:#f06a6a">${wn} câu sai cần ôn</span>` : ''}</p>
+          <p><span class="cnt">${n}</span> câu hỏi${wn ? ` · <span style="color:#f06a6a">${wn} câu sai cần ôn</span>` : ''}${best ? ` · điểm cao nhất ${best}` : ''}</p>
         </div>`;
       }).join('')}
     </div>
+    ${hist.length ? `<h3 style="margin:18px 0 10px;font-size:.95rem">Lịch sử làm bài</h3>` +
+      hist.slice(0, 8).map(h => `
+        <div class="rev-item" style="display:flex;justify-content:space-between;align-items:center">
+          <span>${h.mode === 'mock' ? '⏱' : '✏️'} ${BANKS[h.bank].name}</span>
+          <span class="${h.pct >= 70 ? 'right' : 'you'}" style="font-weight:700">${h.pct}/100</span>
+          <span style="color:#8b93a5;font-size:.75rem">${fmtDate(h.at)}</span>
+        </div>`).join('') : ''}
     <p class="stats">💡 Mẹo: thi trên giấy, đáp án có thể xáo thứ tự — học nội dung đúng, đừng học vị trí chữ cái.</p>`;
 }
 
 // ---------- BANK MENU ----------
 function pickBank(k) {
+  clearInterval(state.timer);
   state.bank = k;
   const n = BANKS[k].qs.length;
   const w = getWrong()[k] || {};
+  const sess = getSession();
   header(BANKS[k].name);
   app.innerHTML = `
     <h2 style="margin-bottom:6px;font-size:1.1rem">${BANKS[k].name}</h2>
     <p class="stats">${n} câu · ${Object.keys(w).length} câu từng làm sai</p>
+    ${sess && sess.bank === k ? `<div class="rev-item" style="border-color:#6ea8fe;margin-bottom:12px">
+      ⏸ Có phiên ${sess.mode === 'mock' ? 'thi thử' : sess.mode === 'quiz' ? 'luyện tập' : 'học'} đang dở — ${Object.keys(sess.answers || {}).length}/${sess.qs.length} câu
+      <div class="mode-row" style="margin-top:8px"><button class="btn sm" onclick="resumeSession()">▶ Tiếp tục</button></div>
+    </div>` : ''}
     <div class="mode-row">
       <button class="btn" onclick="startStudy()">📖 Học (xem đáp án)</button>
       <button class="btn" onclick="quizMenu()">✏️ Luyện tập</button>
       <button class="btn" onclick="startMock()">⏱ Thi thử (50 câu / 60')</button>
       ${Object.keys(w).length ? `<button class="btn ghost" onclick="startWrong()">🔁 Ôn ${Object.keys(w).length} câu sai</button>` : ''}
     </div>
-    <label class="check"><input type="checkbox" id="shuf" ${state.shuffleOpt ? 'checked' : ''} onchange="state.shuffleOpt=this.checked"> Xáo trộn thứ tự đáp án (khuyên dùng)</label>
+    <label class="check"><input type="checkbox" ${state.shuffleOpt ? 'checked' : ''} onchange="setShuf(this.checked)"> Xáo trộn thứ tự đáp án (khuyên dùng)</label>
     <div class="mode-row"><button class="btn ghost sm" onclick="home()">← Chọn bộ khác</button></div>`;
 }
+function setShuf(v) { state.shuffleOpt = v; localStorage.setItem(LS_SHUF, v ? '1' : '0'); }
 
 // ---------- STUDY MODE ----------
 function startStudy(idxList) {
+  clearSession();
   state.mode = 'study';
-  const base = idxList || BANKS[state.bank].qs.map((_, i) => i);
   const raw = idxList ? idxList.map(i => BANKS[state.bank].qs[i]) : BANKS[state.bank].qs;
   state.qs = prepQuestions(raw);
   state.origIdx = idxList || BANKS[state.bank].qs.map((_, i) => i);
@@ -88,6 +158,7 @@ function startStudy(idxList) {
 function showStudy() {
   const q = state.qs[state.idx];
   header(`${BANKS[state.bank].name} — Học`);
+  saveSession();
   app.innerHTML = `
     <div class="topbar">
       <button class="btn ghost sm" onclick="pickBank('${state.bank}')">← Menu</button>
@@ -96,10 +167,10 @@ function showStudy() {
     <div class="progress"><div style="width:${(state.idx + 1) / state.qs.length * 100}%"></div></div>
     <div class="qcard">
       <div class="qnum">Câu ${state.origIdx ? state.origIdx[state.idx] + 1 : state.idx + 1}</div>
-      <div class="qtext">${q.q}</div>
+      <div class="qtext">${esc(q.q)}</div>
       ${q.o.map((o, i) => `
         <div class="opt ${state.reveal ? (i === q.a ? 'correct' : 'dim') : ''}" onclick="state.reveal=true;showStudy()">
-          <span class="let">${LETTERS[i]}.</span> ${o}
+          <span class="let">${LETTERS[i]}.</span> ${esc(o)}
         </div>`).join('')}
       ${state.reveal ? `<div class="ans-reveal">Đáp án: ${LETTERS[q.a]}</div>` : ''}
     </div>
@@ -131,6 +202,7 @@ function quizMenu() {
 }
 
 function startQuiz(n) {
+  clearSession();
   const all = BANKS[state.bank].qs.map((_, i) => i);
   const picked = n >= all.length ? all : shuffle(all).slice(0, n);
   state.mode = 'quiz';
@@ -143,6 +215,7 @@ function startQuiz(n) {
 function showQuiz() {
   const answered = Object.keys(state.answers).length;
   header(`${BANKS[state.bank].name} — Luyện tập`);
+  saveSession();
   app.innerHTML = `
     <div class="topbar">
       <button class="btn ghost sm" onclick="pickBank('${state.bank}')">← Menu</button>
@@ -159,7 +232,7 @@ function quizQ() {
   return `
     <div class="qcard">
       <div class="qnum">Câu ${state.idx + 1}</div>
-      <div class="qtext">${q.q}</div>
+      <div class="qtext">${esc(q.q)}</div>
       ${q.o.map((o, i) => {
         let cls = '';
         if (my !== undefined) {
@@ -167,7 +240,7 @@ function quizQ() {
           else if (i === my) cls = 'wrong';
           else cls = 'dim';
         }
-        return `<button class="opt ${cls}" ${my !== undefined ? 'disabled' : ''} onclick="answer(${i})"><span class="let">${LETTERS[i]}.</span> ${o}</button>`;
+        return `<button class="opt ${cls}" ${my !== undefined ? 'disabled' : ''} onclick="answer(${i})"><span class="let">${LETTERS[i]}.</span> ${esc(o)}</button>`;
       }).join('')}
       ${my !== undefined ? `<div class="ans-reveal">${my === q.a ? '✓ Đúng!' : '✗ Sai. '}Đáp án: ${LETTERS[q.a]}</div>` : ''}
     </div>
@@ -187,7 +260,12 @@ function answer(i) {
   showQuiz();
 }
 function qnav(d) { state.idx = Math.min(state.qs.length - 1, Math.max(0, state.idx + d)); showQuiz(); }
-function finishQuiz() { state.done = true; showQuiz(); }
+function finishQuiz() {
+  state.done = true;
+  clearSession();
+  pushHist({ bank: state.bank, mode: 'quiz', score: state.score, total: state.qs.length, pct: Math.round(state.score / state.qs.length * 100) });
+  showQuiz();
+}
 
 function quizResult() {
   const pct = Math.round(state.score / state.qs.length * 100);
@@ -204,27 +282,33 @@ function quizResult() {
     ${wrongs.length ? `<h3 style="margin:20px 0 10px;font-size:.95rem">Các câu sai (${wrongs.length}):</h3>` +
       wrongs.map(([i, a]) => {
         const q = state.qs[i];
-        return `<div class="rev-item"><div class="q">${q.q}</div>
-          <div class="you">Bạn chọn: ${LETTERS[a]}. ${q.o[a]}</div>
-          <div class="right">Đúng: ${LETTERS[q.a]}. ${q.o[q.a]}</div></div>`;
+        return `<div class="rev-item"><div class="q">${esc(q.q)}</div>
+          <div class="you">Bạn chọn: ${LETTERS[a]}. ${esc(q.o[a])}</div>
+          <div class="right">Đúng: ${LETTERS[q.a]}. ${esc(q.o[q.a])}</div></div>`;
       }).join('') : '<p style="text-align:center">🎉 Không sai câu nào!</p>'}`;
 }
 
-// ---------- MOCK EXAM (50 câu / 60 phút, giống format thi thật) ----------
-function startMock() {
-  const all = BANKS[state.bank].qs.map((_, i) => i);
-  const picked = shuffle(all).slice(0, Math.min(50, all.length));
-  state.mode = 'mock';
-  state.qs = prepQuestions(picked.map(i => BANKS[state.bank].qs[i]));
-  state.origIdx = picked;
-  state.answers = {}; state.idx = 0; state.done = false; state.remain = 60 * 60;
+// ---------- MOCK EXAM ----------
+function startTimer() {
   clearInterval(state.timer);
   state.timer = setInterval(() => {
     state.remain--;
     if (state.remain <= 0) { finishMock(); return; }
     const el = document.getElementById('timer');
     if (el) el.textContent = fmtTime(state.remain);
+    if (state.remain % 10 === 0) saveSession();
   }, 1000);
+}
+
+function startMock() {
+  clearSession();
+  const all = BANKS[state.bank].qs.map((_, i) => i);
+  const picked = shuffle(all).slice(0, Math.min(50, all.length));
+  state.mode = 'mock';
+  state.qs = prepQuestions(picked.map(i => BANKS[state.bank].qs[i]));
+  state.origIdx = picked;
+  state.answers = {}; state.idx = 0; state.done = false; state.remain = 60 * 60;
+  startTimer();
   showMock();
 }
 
@@ -249,8 +333,8 @@ function mockQ() {
   return `
     <div class="qcard">
       <div class="qnum">Câu ${state.idx + 1} / ${state.qs.length}</div>
-      <div class="qtext">${q.q}</div>
-      ${q.o.map((o, i) => `<button class="opt ${my === i ? 'correct' : ''}" onclick="mockAns(${i})"><span class="let">${LETTERS[i]}.</span> ${o}</button>`).join('')}
+      <div class="qtext">${esc(q.q)}</div>
+      ${q.o.map((o, i) => `<button class="opt ${my === i ? 'correct' : ''}" onclick="mockAns(${i})"><span class="let">${LETTERS[i]}.</span> ${esc(o)}</button>`).join('')}
     </div>
     <div class="nav-row">
       <button class="btn ghost" ${state.idx === 0 ? 'disabled' : ''} onclick="mnav(-1)">← Trước</button>
@@ -260,9 +344,9 @@ function mockQ() {
         : `<button class="btn" onclick="mnav(1)">Sau →</button>`}
     </div>`;
 }
-function mockAns(i) { state.answers[state.idx] = i; showMock(); }
-function mnav(d) { state.idx = Math.min(state.qs.length - 1, Math.max(0, state.idx + d)); showMock(); }
-function confirmExit() { if (confirm('Thoát bài thi thử?')) pickBank(state.bank); }
+function mockAns(i) { state.answers[state.idx] = i; saveSession(); showMock(); }
+function mnav(d) { state.idx = Math.min(state.qs.length - 1, Math.max(0, state.idx + d)); saveSession(); showMock(); }
+function confirmExit() { if (confirm('Thoát bài thi thử? (tiến độ đã lưu, có thể tiếp tục sau)')) pickBank(state.bank); }
 
 function finishMock() {
   clearInterval(state.timer);
@@ -272,7 +356,10 @@ function finishMock() {
     if (right) state.score++;
     if (state.answers[i] !== undefined) markWrong(state.bank, state.origIdx[i], !right);
   });
-  state.done = true; showMock();
+  state.done = true;
+  clearSession();
+  pushHist({ bank: state.bank, mode: 'mock', score: state.score, total: state.qs.length, pct: Math.round(state.score / state.qs.length * 100) });
+  showMock();
 }
 
 function mockResult() {
@@ -291,9 +378,9 @@ function mockResult() {
     ${wrongs.length ? `<h3 style="margin:20px 0 10px;font-size:.95rem">Các câu sai (${wrongs.length}):</h3>` +
       wrongs.map(([i, a]) => {
         const q = state.qs[i];
-        return `<div class="rev-item"><div class="q">${q.q}</div>
-          <div class="you">Bạn chọn: ${LETTERS[a]}. ${q.o[a]}</div>
-          <div class="right">Đúng: ${LETTERS[q.a]}. ${q.o[q.a]}</div></div>`;
+        return `<div class="rev-item"><div class="q">${esc(q.q)}</div>
+          <div class="you">Bạn chọn: ${LETTERS[a]}. ${esc(q.o[a])}</div>
+          <div class="right">Đúng: ${LETTERS[q.a]}. ${esc(q.o[q.a])}</div></div>`;
       }).join('') : ''}`;
 }
 
