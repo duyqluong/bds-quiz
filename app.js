@@ -37,6 +37,12 @@ const bankProg = bankKey => {
   const c = es.reduce((s, e) => s + e[0], 0), n = es.reduce((s, e) => s + e[0] + e[1], 0);
   return { seen: es.length, acc: n ? Math.round(c / n * 100) : 0 };
 };
+const progTag = () => {
+  const e = (getProg()[state.bank] || {})[state.origIdx ? state.origIdx[state.idx] : state.idx];
+  if (!e) return '';
+  const color = e[1] && !e[0] ? '#f06a6a' : e[1] ? '#ffd166' : '#3dd68c';
+  return ` · <span style="color:${color}">✓${e[0]} ✗${e[1]}</span>`;
+};
 
 const getHist = () => JSON.parse(localStorage.getItem(LS_HIST) || '[]');
 const pushHist = e => {
@@ -200,7 +206,7 @@ function showStudy() {
     </div>
     <div class="progress"><div style="width:${(state.idx + 1) / state.qs.length * 100}%"></div></div>
     <div class="qcard">
-      <div class="qnum">Câu ${state.origIdx ? state.origIdx[state.idx] + 1 : state.idx + 1}</div>
+      <div class="qnum">Câu ${state.origIdx ? state.origIdx[state.idx] + 1 : state.idx + 1}${progTag()}</div>
       <div class="qtext">${esc(q.q)}</div>
       ${q.o.map((o, i) => {
         let cls = '';
@@ -282,7 +288,7 @@ function quizQ() {
   const my = state.answers[state.idx];
   return `
     <div class="qcard">
-      <div class="qnum">Câu ${state.idx + 1}</div>
+      <div class="qnum">Câu ${state.idx + 1}${progTag()}</div>
       <div class="qtext">${esc(q.q)}</div>
       ${q.o.map((o, i) => {
         let cls = '';
@@ -385,7 +391,7 @@ function mockQ() {
   const my = state.answers[state.idx];
   return `
     <div class="qcard">
-      <div class="qnum">Câu ${state.idx + 1} / ${state.qs.length}</div>
+      <div class="qnum">Câu ${state.idx + 1} / ${state.qs.length}${progTag()}</div>
       <div class="qtext">${esc(q.q)}</div>
       ${q.o.map((o, i) => `<button class="opt ${my === i ? 'correct' : ''}" onclick="mockAns(${i})"><span class="let">${LETTERS[i]}.</span> ${esc(o)}</button>`).join('')}
     </div>
