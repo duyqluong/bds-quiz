@@ -2,6 +2,7 @@
 const app = document.getElementById('app');
 const LETTERS = 'ABCD';
 const LS_WRONG = 'bds_wrong';
+const LS_PERF = 'bds_perf';
 const LS_SESSION = 'bds_session';
 const LS_HIST = 'bds_hist';
 const LS_SHUF = 'bds_shuf';
@@ -23,6 +24,24 @@ const markWrong = (bankKey, qi, wrong) => {
   setWrong(w);
 };
 
+const getPerf = () => JSON.parse(localStorage.getItem(LS_PERF) || '{}');
+const markPerf = (bankKey, qi, right) => {
+  const p = getPerf();
+  p[bankKey] = p[bankKey] || {};
+  const e = p[bankKey][qi] = p[bankKey][qi] || { c: 0, w: 0 };
+  right ? e.c++ : e.w++;
+  try { localStorage.setItem(LS_PERF, JSON.stringify(p)); } catch {}
+};
+const bankPerf = bankKey => {
+  const es = Object.values(getPerf()[bankKey] || {});
+  const c = es.reduce((s, e) => s + e.c, 0), n = es.reduce((s, e) => s + e.c + e.w, 0);
+  return { seen: es.length, acc: n ? Math.round(c / n * 100) : 0 };
+};
+const perfText = (bankKey, qi) => {
+  const e = (getPerf()[bankKey] || {})[qi];
+  return e ? ` · bạn đúng ${e.c}/${e.c + e.w} lần` : '';
+};
+
 const getHist = () => JSON.parse(localStorage.getItem(LS_HIST) || '[]');
 const pushHist = e => {
   const h = getHist();
@@ -32,30 +51,44 @@ const pushHist = e => {
 
 function saveSession() {
   if (!state.mode || state.done) return;
-  localStorage.setItem(LS_SESSION, JSON.stringify({
-    bank: state.bank, mode: state.mode, qs: state.qs, origIdx: state.origIdx,
-    idx: state.idx, answers: state.answers, remain: state.remain, saved: Date.now(),
-  }));
+  try {
+    localStorage.setItem(LS_SESSION, JSON.stringify({
+      bank: state.bank, mode: state.mode, qs: state.qs, origIdx: state.origIdx,
+      idx: state.idx, answers: state.answers, remain: state.remain, saved: Date.now(),
+    }));
+  } catch { /* quota full — don't break rendering */ }
 }
 const getSession = () => {
-  try { return JSON.parse(localStorage.getItem(LS_SESSION) || 'null'); }
-  catch { return null; }
+  try {
+    const s = JSON.parse(localStorage.getItem(LS_SESSION) || 'null');
+    if (!s || !BANKS[s.bank] || !Array.isArray(s.qs) || !s.qs.length ||
+        typeof s.idx !== 'number' || s.idx < 0 || s.idx >= s.qs.length) {
+      if (s) clearSession();
+      return null;
+    }
+    return s;
+  } catch { return null; }
 };
 const clearSession = () => localStorage.removeItem(LS_SESSION);
+const sessProgress = s => s.mode === 'study'
+  ? `câu ${s.idx + 1}/${s.qs.length}`
+  : `${Object.keys(s.answers || {}).length}/${s.qs.length} câu`;
 
 function resumeSession() {
   const s = getSession();
   if (!s) return home();
   state.bank = s.bank; state.mode = s.mode; state.qs = s.qs;
-  state.origIdx = s.origIdx; state.idx = s.idx; state.answers = s.answers || {};
+  state.origIdx = s.origIdx || s.qs.map((_, i) => i);
+  state.idx = s.idx; state.answers = s.answers || {};
   state.done = false; state.reveal = false;
+  clearInterval(state.timer);
   if (s.mode === 'mock') {
     state.remain = s.remain || 3600;
     state.score = 0;
     startTimer();
     showMock();
   } else if (s.mode === 'quiz') {
-    state.score = Object.entries(s.answers).filter(([i, a]) => a === s.qs[i].a).length;
+    state.score = Object.entries(state.answers).filter(([i, a]) => a === state.qs[i].a).length;
     showQuiz();
   } else {
     showStudy();
@@ -90,7 +123,7 @@ function home() {
     ${sess && !sess.done ? `
       <div class="rev-item" style="border-color:#6ea8fe">
         ⏸ Phiên trước chưa xong: <b>${BANKS[sess.bank].name}</b> — ${sess.mode === 'mock' ? 'Thi thử' : sess.mode === 'quiz' ? 'Luyện tập' : 'Học'}
-        (${Object.keys(sess.answers || {}).length}/${sess.qs.length} câu)
+        (${sessProgress(sess)})
         <div class="mode-row" style="margin-top:8px">
           <button class="btn sm" onclick="resumeSession()">▶ Tiếp tục</button>
           <button class="btn ghost sm" onclick="clearSession();home()">Bỏ qua</button>
@@ -102,9 +135,10 @@ function home() {
         const n = BANKS[k].qs.length;
         const wn = Object.keys(w[k] || {}).length;
         const best = Math.max(0, ...hist.filter(h => h.bank === k).map(h => h.pct));
+        const perf = bankPerf(k);
         return `<div class="bank-card" onclick="pickBank('${k}')">
           <h3>${BANKS[k].name}</h3>
-          <p><span class="cnt">${n}</span> câu hỏi${wn ? ` · <span style="color:#f06a6a">${wn} câu sai cần ôn</span>` : ''}${best ? ` · điểm cao nhất ${best}` : ''}</p>
+          <p><span class="cnt">${n}</span> câu hỏi${wn ? ` · <span style="color:#f06a6a">${wn} câu sai cần ôn</span>` : ''}${perf.seen ? ` · <span class="${perf.acc >= 70 ? 'right' : 'you'}">${perf.acc}% đúng (${perf.seen} câu đã làm)</span>` : ''}${best ? ` · điểm cao nhất ${best}` : ''}</p>
         </div>`;
       }).join('')}
     </div>
@@ -128,9 +162,9 @@ function pickBank(k) {
   header(BANKS[k].name);
   app.innerHTML = `
     <h2 style="margin-bottom:6px;font-size:1.1rem">${BANKS[k].name}</h2>
-    <p class="stats">${n} câu · ${Object.keys(w).length} câu từng làm sai</p>
+    <p class="stats">${n} câu · ${Object.keys(w).length} câu từng làm sai${(() => { const p = bankPerf(k); return p.seen ? ` · ${p.acc}% đúng (${p.seen} câu đã làm)` : ''; })()}</p>
     ${sess && sess.bank === k ? `<div class="rev-item" style="border-color:#6ea8fe;margin-bottom:12px">
-      ⏸ Có phiên ${sess.mode === 'mock' ? 'thi thử' : sess.mode === 'quiz' ? 'luyện tập' : 'học'} đang dở — ${Object.keys(sess.answers || {}).length}/${sess.qs.length} câu
+      ⏸ Có phiên ${sess.mode === 'mock' ? 'thi thử' : sess.mode === 'quiz' ? 'luyện tập' : 'học'} đang dở — ${sessProgress(sess)}
       <div class="mode-row" style="margin-top:8px"><button class="btn sm" onclick="resumeSession()">▶ Tiếp tục</button></div>
     </div>` : ''}
     <div class="mode-row">
@@ -172,7 +206,7 @@ function showStudy() {
         <div class="opt ${state.reveal ? (i === q.a ? 'correct' : 'dim') : ''}" onclick="state.reveal=true;showStudy()">
           <span class="let">${LETTERS[i]}.</span> ${esc(o)}
         </div>`).join('')}
-      ${state.reveal ? `<div class="ans-reveal">Đáp án: ${LETTERS[q.a]}</div>` : ''}
+      ${state.reveal ? `<div class="ans-reveal">Đáp án: ${LETTERS[q.a]}${perfText(state.bank, state.origIdx ? state.origIdx[state.idx] : state.idx)}</div>` : ''}
     </div>
     <div class="nav-row">
       <button class="btn ghost" ${state.idx === 0 ? 'disabled' : ''} onclick="nav(-1)">← Trước</button>
@@ -242,7 +276,7 @@ function quizQ() {
         }
         return `<button class="opt ${cls}" ${my !== undefined ? 'disabled' : ''} onclick="answer(${i})"><span class="let">${LETTERS[i]}.</span> ${esc(o)}</button>`;
       }).join('')}
-      ${my !== undefined ? `<div class="ans-reveal">${my === q.a ? '✓ Đúng!' : '✗ Sai. '}Đáp án: ${LETTERS[q.a]}</div>` : ''}
+      ${my !== undefined ? `<div class="ans-reveal">${my === q.a ? '✓ Đúng!' : '✗ Sai. '}Đáp án: ${LETTERS[q.a]}${perfText(state.bank, state.origIdx ? state.origIdx[state.idx] : state.idx)}</div>` : ''}
     </div>
     <div class="nav-row">
       <button class="btn ghost" ${state.idx === 0 ? 'disabled' : ''} onclick="qnav(-1)">← Trước</button>
@@ -256,7 +290,9 @@ function answer(i) {
   state.answers[state.idx] = i;
   const right = i === q.a;
   if (right) state.score++;
-  markWrong(state.bank, state.origIdx[state.idx], !right);
+  const oi = state.origIdx ? state.origIdx[state.idx] : state.idx;
+  markWrong(state.bank, oi, !right);
+  markPerf(state.bank, oi, right);
   showQuiz();
 }
 function qnav(d) { state.idx = Math.min(state.qs.length - 1, Math.max(0, state.idx + d)); showQuiz(); }
@@ -354,7 +390,11 @@ function finishMock() {
   state.qs.forEach((q, i) => {
     const right = state.answers[i] === q.a;
     if (right) state.score++;
-    if (state.answers[i] !== undefined) markWrong(state.bank, state.origIdx[i], !right);
+    if (state.answers[i] !== undefined) {
+      const oi = state.origIdx ? state.origIdx[i] : i;
+      markWrong(state.bank, oi, !right);
+      markPerf(state.bank, oi, right);
+    }
   });
   state.done = true;
   clearSession();
