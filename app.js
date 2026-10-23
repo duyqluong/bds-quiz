@@ -34,7 +34,7 @@ const bankProg = bankKey => {
 const progTag = () => {
   const e = (getProg()[state.bank] || {})[state.origIdx ? state.origIdx[state.idx] : state.idx];
   if (!e) return '';
-  const color = e.w && !e.c ? '#c0392b' : e.w ? '#a3541d' : '#2e7d32';
+  const color = e.w && !e.c ? '#f06a6a' : e.w ? '#ffd166' : '#3dd68c';
   return ` · <span style="color:${color}">✓${e.c} ✗${e.w}</span>`;
 };
 
@@ -134,7 +134,7 @@ function home() {
   const hist = getHist();
   app.innerHTML = `
     ${sess && !sess.done ? `
-      <div class="rev-item" style="border-color:#1e5c46">
+      <div class="rev-item" style="border-color:#6ea8fe">
         ⏸ Phiên trước chưa xong: <b>${BANKS[sess.bank].name}</b> — ${sess.mode === 'mock' ? 'Thi thử' : sess.mode === 'quiz' ? 'Luyện tập' : 'Học'}
         (${sessProgress(sess)})
         <div class="mode-row" style="margin-top:8px">
@@ -151,7 +151,7 @@ function home() {
         const prog = bankProg(k);
         return `<div class="bank-card" onclick="pickBank('${k}')">
           <h3>${BANKS[k].name}</h3>
-          <p><span class="cnt">${n}</span> câu hỏi${prog.seen ? ` · đã làm ${prog.seen} · <span class="${prog.acc >= 70 ? 'right' : 'you'}">${prog.acc}% đúng</span>` : ''}${wn ? ` · <span style="color:#c0392b">${wn} câu sai cần ôn</span>` : ''}${best ? ` · điểm cao nhất ${best}` : ''}</p>
+          <p><span class="cnt">${n}</span> câu hỏi${prog.seen ? ` · đã làm ${prog.seen} · <span class="${prog.acc >= 70 ? 'right' : 'you'}">${prog.acc}% đúng</span>` : ''}${wn ? ` · <span style="color:#f06a6a">${wn} câu sai cần ôn</span>` : ''}${best ? ` · điểm cao nhất ${best}` : ''}</p>
         </div>`;
       }).join('')}
     </div>
@@ -176,7 +176,7 @@ function pickBank(k) {
   app.innerHTML = `
     <h2 style="margin-bottom:6px;font-size:1.1rem">${BANKS[k].name}</h2>
     <p class="stats">${n} câu · ${wn} câu từng làm sai${(() => { const p = bankProg(k); return p.seen ? ` · đã làm ${p.seen} · ${p.acc}% đúng` : ''; })()}</p>
-    ${sess && sess.bank === k ? `<div class="rev-item" style="border-color:#1e5c46;margin-bottom:12px">
+    ${sess && sess.bank === k ? `<div class="rev-item" style="border-color:#6ea8fe;margin-bottom:12px">
       ⏸ Có phiên ${sess.mode === 'mock' ? 'thi thử' : sess.mode === 'quiz' ? 'luyện tập' : 'học'} đang dở — ${sessProgress(sess)}
       <div class="mode-row" style="margin-top:8px"><button class="btn sm" onclick="resumeSession()">▶ Tiếp tục</button></div>
     </div>` : ''}
@@ -213,7 +213,7 @@ function showStudy() {
   app.innerHTML = `
     <div class="topbar">
       <button class="btn ghost sm" onclick="pickBank('${state.bank}')">← Menu</button>
-      <span class="tag">Câu ${state.idx + 1} / ${state.qs.length}${answered ? ` · <span style="color:#2e7d32">✓ ${right}</span> · <span style="color:#c0392b">✗ ${answered - right}</span>` : ''}</span>
+      <span class="tag">Câu ${state.idx + 1} / ${state.qs.length}${answered ? ` · <span style="color:#3dd68c">✓ ${right}</span> · <span style="color:#f06a6a">✗ ${answered - right}</span>` : ''}</span>
     </div>
     <div class="progress"><div style="width:${(state.idx + 1) / state.qs.length * 100}%"></div></div>
     <div class="qcard">
@@ -285,7 +285,7 @@ function showQuiz() {
   app.innerHTML = `
     <div class="topbar">
       <button class="btn ghost sm" onclick="pickBank('${state.bank}')">← Menu</button>
-      <span class="tag">${answered}/${state.qs.length} đã làm · <span style="color:#2e7d32">✓ ${state.score}</span> · <span style="color:#c0392b">✗ ${answered - state.score}</span></span>
+      <span class="tag">${answered}/${state.qs.length} đã làm · <span style="color:#3dd68c">✓ ${state.score}</span> · <span style="color:#f06a6a">✗ ${answered - state.score}</span></span>
     </div>
     <div class="progress"><div style="width:${answered / state.qs.length * 100}%"></div></div>
     ${state.done ? quizResult() : quizQ()}
