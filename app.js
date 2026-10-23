@@ -1,4 +1,4 @@
-﻿// Ã”n thi MÃ´i giá»›i BÄS â€” static quiz app
+// Ôn thi Môi giới BĐS — static quiz app
 const app = document.getElementById('app');
 const LETTERS = 'ABCD';
 const LS_PROG = 'bds_prog';
@@ -35,7 +35,7 @@ const progTag = () => {
   const e = (getProg()[state.bank] || {})[state.origIdx ? state.origIdx[state.idx] : state.idx];
   if (!e) return '';
   const color = e.w && !e.c ? '#c0392b' : e.w ? '#a3541d' : '#2e7d32';
-  return ` Â· <span style="color:${color}">âœ“${e.c} âœ—${e.w}</span>`;
+  return ` · <span style="color:${color}">✓${e.c} ✗${e.w}</span>`;
 };
 
 // one-time migration from the old separate wrong-answer store
@@ -70,7 +70,7 @@ function saveSession() {
       bank: state.bank, mode: state.mode, qs: state.qs, origIdx: state.origIdx,
       idx: state.idx, answers: state.answers, remain: state.remain, saved: Date.now(),
     }));
-  } catch { /* quota full â€” don't break rendering */ }
+  } catch { /* quota full — don't break rendering */ }
 }
 const getSession = () => {
   try {
@@ -85,8 +85,8 @@ const getSession = () => {
 };
 const clearSession = () => localStorage.removeItem(LS_SESSION);
 const sessProgress = s => s.mode === 'study'
-  ? `cÃ¢u ${s.idx + 1}/${s.qs.length}`
-  : `${Object.keys(s.answers || {}).length}/${s.qs.length} cÃ¢u`;
+  ? `câu ${s.idx + 1}/${s.qs.length}`
+  : `${Object.keys(s.answers || {}).length}/${s.qs.length} câu`;
 
 function resumeSession() {
   const s = getSession();
@@ -135,14 +135,14 @@ function home() {
   app.innerHTML = `
     ${sess && !sess.done ? `
       <div class="rev-item" style="border-color:#1e5c46">
-        â¸ PhiÃªn trÆ°á»›c chÆ°a xong: <b>${BANKS[sess.bank].name}</b> â€” ${sess.mode === 'mock' ? 'Thi thá»­' : sess.mode === 'quiz' ? 'Luyá»‡n táº­p' : 'Há»c'}
+        ⏸ Phiên trước chưa xong: <b>${BANKS[sess.bank].name}</b> — ${sess.mode === 'mock' ? 'Thi thử' : sess.mode === 'quiz' ? 'Luyện tập' : 'Học'}
         (${sessProgress(sess)})
         <div class="mode-row" style="margin-top:8px">
-          <button class="btn sm" onclick="resumeSession()">â–¶ Tiáº¿p tá»¥c</button>
-          <button class="btn ghost sm" onclick="clearSession();home()">Bá» qua</button>
+          <button class="btn sm" onclick="resumeSession()">▶ Tiếp tục</button>
+          <button class="btn ghost sm" onclick="clearSession();home()">Bỏ qua</button>
         </div>
       </div>` : ''}
-    <p class="stats">Ã”n thi sÃ¡t háº¡ch chá»©ng chá»‰ hÃ nh nghá» mÃ´i giá»›i BÄS â€” tráº¯c nghiá»‡m, 120 phÃºt/pháº§n, Ä‘áº­u â‰¥70/100.</p>
+    <p class="stats">Ôn thi sát hạch chứng chỉ hành nghề môi giới BĐS — trắc nghiệm, 120 phút/phần, đậu ≥70/100.</p>
     <div class="bank-grid">
       ${Object.keys(BANKS).map(k => {
         const n = BANKS[k].qs.length;
@@ -151,18 +151,18 @@ function home() {
         const prog = bankProg(k);
         return `<div class="bank-card" onclick="pickBank('${k}')">
           <h3>${BANKS[k].name}</h3>
-          <p><span class="cnt">${n}</span> cÃ¢u há»i${prog.seen ? ` Â· Ä‘Ã£ lÃ m ${prog.seen} Â· <span class="${prog.acc >= 70 ? 'right' : 'you'}">${prog.acc}% Ä‘Ãºng</span>` : ''}${wn ? ` Â· <span style="color:#c0392b">${wn} cÃ¢u sai cáº§n Ã´n</span>` : ''}${best ? ` Â· Ä‘iá»ƒm cao nháº¥t ${best}` : ''}</p>
+          <p><span class="cnt">${n}</span> câu hỏi${prog.seen ? ` · đã làm ${prog.seen} · <span class="${prog.acc >= 70 ? 'right' : 'you'}">${prog.acc}% đúng</span>` : ''}${wn ? ` · <span style="color:#c0392b">${wn} câu sai cần ôn</span>` : ''}${best ? ` · điểm cao nhất ${best}` : ''}</p>
         </div>`;
       }).join('')}
     </div>
-    ${hist.length ? `<h3 style="margin:18px 0 10px;font-size:.95rem">Lá»‹ch sá»­ lÃ m bÃ i</h3>` +
+    ${hist.length ? `<h3 style="margin:18px 0 10px;font-size:.95rem">Lịch sử làm bài</h3>` +
       hist.slice(0, 8).map(h => `
         <div class="rev-item" style="display:flex;justify-content:space-between;align-items:center">
-          <span>${h.mode === 'mock' ? 'â±' : 'âœï¸'} ${BANKS[h.bank].name}</span>
+          <span>${h.mode === 'mock' ? '⏱' : '✏️'} ${BANKS[h.bank].name}</span>
           <span class="${h.pct >= 70 ? 'right' : 'you'}" style="font-weight:700">${h.pct}/100</span>
           <span style="color:#8b93a5;font-size:.75rem">${fmtDate(h.at)}</span>
         </div>`).join('') : ''}
-    <p class="stats">ðŸ’¡ Máº¹o: thi trÃªn giáº¥y, Ä‘Ã¡p Ã¡n cÃ³ thá»ƒ xÃ¡o thá»© tá»± â€” há»c ná»™i dung Ä‘Ãºng, Ä‘á»«ng há»c vá»‹ trÃ­ chá»¯ cÃ¡i.</p>`;
+    <p class="stats">💡 Mẹo: thi trên giấy, đáp án có thể xáo thứ tự — học nội dung đúng, đừng học vị trí chữ cái.</p>`;
 }
 
 // ---------- BANK MENU ----------
@@ -175,19 +175,19 @@ function pickBank(k) {
   header(BANKS[k].name);
   app.innerHTML = `
     <h2 style="margin-bottom:6px;font-size:1.1rem">${BANKS[k].name}</h2>
-    <p class="stats">${n} cÃ¢u Â· ${wn} cÃ¢u tá»«ng lÃ m sai${(() => { const p = bankProg(k); return p.seen ? ` Â· Ä‘Ã£ lÃ m ${p.seen} Â· ${p.acc}% Ä‘Ãºng` : ''; })()}</p>
+    <p class="stats">${n} câu · ${wn} câu từng làm sai${(() => { const p = bankProg(k); return p.seen ? ` · đã làm ${p.seen} · ${p.acc}% đúng` : ''; })()}</p>
     ${sess && sess.bank === k ? `<div class="rev-item" style="border-color:#1e5c46;margin-bottom:12px">
-      â¸ CÃ³ phiÃªn ${sess.mode === 'mock' ? 'thi thá»­' : sess.mode === 'quiz' ? 'luyá»‡n táº­p' : 'há»c'} Ä‘ang dá»Ÿ â€” ${sessProgress(sess)}
-      <div class="mode-row" style="margin-top:8px"><button class="btn sm" onclick="resumeSession()">â–¶ Tiáº¿p tá»¥c</button></div>
+      ⏸ Có phiên ${sess.mode === 'mock' ? 'thi thử' : sess.mode === 'quiz' ? 'luyện tập' : 'học'} đang dở — ${sessProgress(sess)}
+      <div class="mode-row" style="margin-top:8px"><button class="btn sm" onclick="resumeSession()">▶ Tiếp tục</button></div>
     </div>` : ''}
     <div class="mode-row">
-      <button class="btn" onclick="startStudy()">ðŸ“– Há»c (xem Ä‘Ã¡p Ã¡n)</button>
-      <button class="btn" onclick="quizMenu()">âœï¸ Luyá»‡n táº­p</button>
-      <button class="btn" onclick="startMock()">â± Thi thá»­ (50 cÃ¢u / 60')</button>
-      ${wn ? `<button class="btn ghost" onclick="startWrong()">ðŸ” Ã”n ${wn} cÃ¢u sai</button>` : ''}
+      <button class="btn" onclick="startStudy()">📖 Học (xem đáp án)</button>
+      <button class="btn" onclick="quizMenu()">✏️ Luyện tập</button>
+      <button class="btn" onclick="startMock()">⏱ Thi thử (50 câu / 60')</button>
+      ${wn ? `<button class="btn ghost" onclick="startWrong()">🔁 Ôn ${wn} câu sai</button>` : ''}
     </div>
-    <label class="check"><input type="checkbox" ${state.shuffleOpt ? 'checked' : ''} onchange="setShuf(this.checked)"> XÃ¡o trá»™n thá»© tá»± Ä‘Ã¡p Ã¡n (khuyÃªn dÃ¹ng)</label>
-    <div class="mode-row"><button class="btn ghost sm" onclick="home()">â† Chá»n bá»™ khÃ¡c</button></div>`;
+    <label class="check"><input type="checkbox" ${state.shuffleOpt ? 'checked' : ''} onchange="setShuf(this.checked)"> Xáo trộn thứ tự đáp án (khuyên dùng)</label>
+    <div class="mode-row"><button class="btn ghost sm" onclick="home()">← Chọn bộ khác</button></div>`;
 }
 function setShuf(v) { state.shuffleOpt = v; localStorage.setItem(LS_SHUF, v ? '1' : '0'); }
 
@@ -208,16 +208,16 @@ function showStudy() {
   const rev = state.reveal || my !== undefined;
   const answered = Object.keys(state.answers).length;
   const right = Object.entries(state.answers).filter(([i, a]) => a === state.qs[i].a).length;
-  header(`${BANKS[state.bank].name} â€” Há»c`);
+  header(`${BANKS[state.bank].name} — Học`);
   saveSession();
   app.innerHTML = `
     <div class="topbar">
-      <button class="btn ghost sm" onclick="pickBank('${state.bank}')">â† Menu</button>
-      <span class="tag">CÃ¢u ${state.idx + 1} / ${state.qs.length}${answered ? ` Â· <span style="color:#2e7d32">âœ“ ${right}</span> Â· <span style="color:#c0392b">âœ— ${answered - right}</span>` : ''}</span>
+      <button class="btn ghost sm" onclick="pickBank('${state.bank}')">← Menu</button>
+      <span class="tag">Câu ${state.idx + 1} / ${state.qs.length}${answered ? ` · <span style="color:#2e7d32">✓ ${right}</span> · <span style="color:#c0392b">✗ ${answered - right}</span>` : ''}</span>
     </div>
     <div class="progress"><div style="width:${(state.idx + 1) / state.qs.length * 100}%"></div></div>
     <div class="qcard">
-      <div class="qnum">CÃ¢u ${state.origIdx ? state.origIdx[state.idx] + 1 : state.idx + 1}${progTag()}</div>
+      <div class="qnum">Câu ${state.origIdx ? state.origIdx[state.idx] + 1 : state.idx + 1}${progTag()}</div>
       <div class="qtext">${esc(q.q)}</div>
       ${q.o.map((o, i) => {
         let cls = '';
@@ -230,12 +230,12 @@ function showStudy() {
           <span class="let">${LETTERS[i]}.</span> ${esc(o)}
         </div>`;
       }).join('')}
-      ${rev ? `<div class="ans-reveal">${my !== undefined ? (my === q.a ? 'âœ“ ÄÃºng! ' : 'âœ— Sai. ') : ''}ÄÃ¡p Ã¡n: ${LETTERS[q.a]}</div>` : ''}
+      ${rev ? `<div class="ans-reveal">${my !== undefined ? (my === q.a ? '✓ Đúng! ' : '✗ Sai. ') : ''}Đáp án: ${LETTERS[q.a]}</div>` : ''}
     </div>
     <div class="nav-row">
-      <button class="btn ghost" ${state.idx === 0 ? 'disabled' : ''} onclick="nav(-1)">â† TrÆ°á»›c</button>
-      <button class="btn ghost" onclick="navRnd()">ðŸŽ² Ngáº«u nhiÃªn</button>
-      <button class="btn" onclick="nav(1)">Sau â†’</button>
+      <button class="btn ghost" ${state.idx === 0 ? 'disabled' : ''} onclick="nav(-1)">← Trước</button>
+      <button class="btn ghost" onclick="navRnd()">🎲 Ngẫu nhiên</button>
+      <button class="btn" onclick="nav(1)">Sau →</button>
     </div>`;
 }
 function studyAns(i) {
@@ -259,12 +259,12 @@ function navRnd() {
 function quizMenu() {
   const n = BANKS[state.bank].qs.length;
   app.innerHTML = `
-    <h2 style="font-size:1.05rem;margin-bottom:10px">Luyá»‡n táº­p â€” chá»n sá»‘ cÃ¢u</h2>
+    <h2 style="font-size:1.05rem;margin-bottom:10px">Luyện tập — chọn số câu</h2>
     <div class="mode-row">
-      ${[10, 25, 50].filter(x => x <= n).map(x => `<button class="btn ghost" onclick="startQuiz(${x})">${x} cÃ¢u</button>`).join('')}
-      <button class="btn ghost" onclick="startQuiz(${n})">Táº¥t cáº£ ${n} cÃ¢u</button>
+      ${[10, 25, 50].filter(x => x <= n).map(x => `<button class="btn ghost" onclick="startQuiz(${x})">${x} câu</button>`).join('')}
+      <button class="btn ghost" onclick="startQuiz(${n})">Tất cả ${n} câu</button>
     </div>
-    <div class="mode-row"><button class="btn ghost sm" onclick="pickBank('${state.bank}')">â† Quay láº¡i</button></div>`;
+    <div class="mode-row"><button class="btn ghost sm" onclick="pickBank('${state.bank}')">← Quay lại</button></div>`;
 }
 
 function startQuiz(n) {
@@ -280,16 +280,16 @@ function startQuiz(n) {
 
 function showQuiz() {
   const answered = Object.keys(state.answers).length;
-  header(`${BANKS[state.bank].name} â€” Luyá»‡n táº­p`);
+  header(`${BANKS[state.bank].name} — Luyện tập`);
   saveSession();
   app.innerHTML = `
     <div class="topbar">
-      <button class="btn ghost sm" onclick="pickBank('${state.bank}')">â† Menu</button>
-      <span class="tag">${answered}/${state.qs.length} Ä‘Ã£ lÃ m Â· <span style="color:#2e7d32">âœ“ ${state.score}</span> Â· <span style="color:#c0392b">âœ— ${answered - state.score}</span></span>
+      <button class="btn ghost sm" onclick="pickBank('${state.bank}')">← Menu</button>
+      <span class="tag">${answered}/${state.qs.length} đã làm · <span style="color:#2e7d32">✓ ${state.score}</span> · <span style="color:#c0392b">✗ ${answered - state.score}</span></span>
     </div>
     <div class="progress"><div style="width:${answered / state.qs.length * 100}%"></div></div>
     ${state.done ? quizResult() : quizQ()}
-    ${!state.done && answered === state.qs.length ? `<div class="nav-row"><button class="btn" onclick="finishQuiz()">Xem káº¿t quáº£ â†’</button></div>` : ''}`;
+    ${!state.done && answered === state.qs.length ? `<div class="nav-row"><button class="btn" onclick="finishQuiz()">Xem kết quả →</button></div>` : ''}`;
 }
 
 function quizQ() {
@@ -297,7 +297,7 @@ function quizQ() {
   const my = state.answers[state.idx];
   return `
     <div class="qcard">
-      <div class="qnum">CÃ¢u ${state.idx + 1}${progTag()}</div>
+      <div class="qnum">Câu ${state.idx + 1}${progTag()}</div>
       <div class="qtext">${esc(q.q)}</div>
       ${q.o.map((o, i) => {
         let cls = '';
@@ -308,11 +308,11 @@ function quizQ() {
         }
         return `<button class="opt ${cls}" ${my !== undefined ? 'disabled' : ''} onclick="answer(${i})"><span class="let">${LETTERS[i]}.</span> ${esc(o)}</button>`;
       }).join('')}
-      ${my !== undefined ? `<div class="ans-reveal">${my === q.a ? 'âœ“ ÄÃºng!' : 'âœ— Sai. '}ÄÃ¡p Ã¡n: ${LETTERS[q.a]}</div>` : ''}
+      ${my !== undefined ? `<div class="ans-reveal">${my === q.a ? '✓ Đúng!' : '✗ Sai. '}Đáp án: ${LETTERS[q.a]}</div>` : ''}
     </div>
     <div class="nav-row">
-      <button class="btn ghost" ${state.idx === 0 ? 'disabled' : ''} onclick="qnav(-1)">â† TrÆ°á»›c</button>
-      <button class="btn" ${state.idx === state.qs.length - 1 ? 'disabled' : ''} onclick="qnav(1)">Sau â†’</button>
+      <button class="btn ghost" ${state.idx === 0 ? 'disabled' : ''} onclick="qnav(-1)">← Trước</button>
+      <button class="btn" ${state.idx === state.qs.length - 1 ? 'disabled' : ''} onclick="qnav(1)">Sau →</button>
     </div>`;
 }
 
@@ -340,19 +340,19 @@ function quizResult() {
   return `
     <div class="result">
       <div class="score ${pct >= 70 ? 'pass' : 'fail'}">${pct}/100</div>
-      <p>${state.score}/${state.qs.length} cÃ¢u Ä‘Ãºng â€” ${pct >= 70 ? 'Äáº T (â‰¥70)' : 'chÆ°a Ä‘áº¡t (<70)'}</p>
+      <p>${state.score}/${state.qs.length} câu đúng — ${pct >= 70 ? 'ĐẠT (≥70)' : 'chưa đạt (<70)'}</p>
       <div class="mode-row" style="justify-content:center">
-        <button class="btn" onclick="startQuiz(${state.qs.length})">LÃ m láº¡i</button>
+        <button class="btn" onclick="startQuiz(${state.qs.length})">Làm lại</button>
         <button class="btn ghost" onclick="pickBank('${state.bank}')">Menu</button>
       </div>
     </div>
-    ${wrongs.length ? `<h3 style="margin:20px 0 10px;font-size:.95rem">CÃ¡c cÃ¢u sai (${wrongs.length}):</h3>` +
+    ${wrongs.length ? `<h3 style="margin:20px 0 10px;font-size:.95rem">Các câu sai (${wrongs.length}):</h3>` +
       wrongs.map(([i, a]) => {
         const q = state.qs[i];
         return `<div class="rev-item"><div class="q">${esc(q.q)}</div>
-          <div class="you">Báº¡n chá»n: ${LETTERS[a]}. ${esc(q.o[a])}</div>
-          <div class="right">ÄÃºng: ${LETTERS[q.a]}. ${esc(q.o[q.a])}</div></div>`;
-      }).join('') : '<p style="text-align:center">ðŸŽ‰ KhÃ´ng sai cÃ¢u nÃ o!</p>'}`;
+          <div class="you">Bạn chọn: ${LETTERS[a]}. ${esc(q.o[a])}</div>
+          <div class="right">Đúng: ${LETTERS[q.a]}. ${esc(q.o[q.a])}</div></div>`;
+      }).join('') : '<p style="text-align:center">🎉 Không sai câu nào!</p>'}`;
 }
 
 // ---------- MOCK EXAM ----------
@@ -383,10 +383,10 @@ const fmtTime = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s 
 
 function showMock() {
   const answered = Object.keys(state.answers).length;
-  header(`${BANKS[state.bank].name} â€” Thi thá»­`);
+  header(`${BANKS[state.bank].name} — Thi thử`);
   app.innerHTML = `
     <div class="topbar">
-      <button class="btn ghost sm" onclick="confirmExit()">â† ThoÃ¡t</button>
+      <button class="btn ghost sm" onclick="confirmExit()">← Thoát</button>
       <span class="timer" id="timer">${fmtTime(state.remain)}</span>
       <span class="tag">${answered}/${state.qs.length}</span>
     </div>
@@ -399,21 +399,21 @@ function mockQ() {
   const my = state.answers[state.idx];
   return `
     <div class="qcard">
-      <div class="qnum">CÃ¢u ${state.idx + 1} / ${state.qs.length}${progTag()}</div>
+      <div class="qnum">Câu ${state.idx + 1} / ${state.qs.length}${progTag()}</div>
       <div class="qtext">${esc(q.q)}</div>
       ${q.o.map((o, i) => `<button class="opt ${my === i ? 'correct' : ''}" onclick="mockAns(${i})"><span class="let">${LETTERS[i]}.</span> ${esc(o)}</button>`).join('')}
     </div>
     <div class="nav-row">
-      <button class="btn ghost" ${state.idx === 0 ? 'disabled' : ''} onclick="mnav(-1)">â† TrÆ°á»›c</button>
-      <button class="btn ghost" onclick="mnav(Math.floor(Math.random()*state.qs.length)-state.idx)">ðŸŽ²</button>
+      <button class="btn ghost" ${state.idx === 0 ? 'disabled' : ''} onclick="mnav(-1)">← Trước</button>
+      <button class="btn ghost" onclick="mnav(Math.floor(Math.random()*state.qs.length)-state.idx)">🎲</button>
       ${state.idx === state.qs.length - 1
-        ? `<button class="btn" onclick="finishMock()">Ná»™p bÃ i</button>`
-        : `<button class="btn" onclick="mnav(1)">Sau â†’</button>`}
+        ? `<button class="btn" onclick="finishMock()">Nộp bài</button>`
+        : `<button class="btn" onclick="mnav(1)">Sau →</button>`}
     </div>`;
 }
 function mockAns(i) { state.answers[state.idx] = i; saveSession(); showMock(); }
 function mnav(d) { state.idx = Math.min(state.qs.length - 1, Math.max(0, state.idx + d)); saveSession(); showMock(); }
-function confirmExit() { if (confirm('ThoÃ¡t bÃ i thi thá»­? (tiáº¿n Ä‘á»™ Ä‘Ã£ lÆ°u, cÃ³ thá»ƒ tiáº¿p tá»¥c sau)')) pickBank(state.bank); }
+function confirmExit() { if (confirm('Thoát bài thi thử? (tiến độ đã lưu, có thể tiếp tục sau)')) pickBank(state.bank); }
 
 function finishMock() {
   clearInterval(state.timer);
@@ -436,18 +436,18 @@ function mockResult() {
   return `
     <div class="result">
       <div class="score ${pct >= 70 ? 'pass' : 'fail'}">${pct}/100</div>
-      <p>${state.score}/${state.qs.length} Ä‘Ãºng${unans ? ` Â· ${unans} cÃ¢u bá» trá»‘ng` : ''} â€” ${pct >= 70 ? 'Äáº T' : 'CHÆ¯A Äáº T'}</p>
+      <p>${state.score}/${state.qs.length} đúng${unans ? ` · ${unans} câu bỏ trống` : ''} — ${pct >= 70 ? 'ĐẠT' : 'CHƯA ĐẠT'}</p>
       <div class="mode-row" style="justify-content:center">
-        <button class="btn" onclick="startMock()">Thi láº¡i</button>
+        <button class="btn" onclick="startMock()">Thi lại</button>
         <button class="btn ghost" onclick="pickBank('${state.bank}')">Menu</button>
       </div>
     </div>
-    ${wrongs.length ? `<h3 style="margin:20px 0 10px;font-size:.95rem">CÃ¡c cÃ¢u sai (${wrongs.length}):</h3>` +
+    ${wrongs.length ? `<h3 style="margin:20px 0 10px;font-size:.95rem">Các câu sai (${wrongs.length}):</h3>` +
       wrongs.map(([i, a]) => {
         const q = state.qs[i];
         return `<div class="rev-item"><div class="q">${esc(q.q)}</div>
-          <div class="you">Báº¡n chá»n: ${LETTERS[a]}. ${esc(q.o[a])}</div>
-          <div class="right">ÄÃºng: ${LETTERS[q.a]}. ${esc(q.o[q.a])}</div></div>`;
+          <div class="you">Bạn chọn: ${LETTERS[a]}. ${esc(q.o[a])}</div>
+          <div class="right">Đúng: ${LETTERS[q.a]}. ${esc(q.o[q.a])}</div></div>`;
       }).join('') : ''}`;
 }
 
