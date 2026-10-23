@@ -1,7 +1,7 @@
 // Ôn thi Môi giới BĐS — static quiz app
 const app = document.getElementById('app');
 const LETTERS = 'ABCD';
-const LS_WRONG = 'bds_wrong';
+const LS_PROG = 'bds_prog';
 const LS_SESSION = 'bds_session';
 const LS_HIST = 'bds_hist';
 const LS_SHUF = 'bds_shuf';
@@ -13,36 +13,48 @@ const state = {
   shuffleOpt: localStorage.getItem(LS_SHUF) !== '0',
 };
 
-// ---------- persistence ----------
-const getWrong = () => JSON.parse(localStorage.getItem(LS_WRONG) || '{}');
-const setWrong = w => localStorage.setItem(LS_WRONG, JSON.stringify(w));
-const markWrong = (bankKey, qi, wrong) => {
-  const w = getWrong();
-  w[bankKey] = w[bankKey] || {};
-  wrong ? (w[bankKey][qi] = true) : delete w[bankKey][qi];
-  setWrong(w);
-};
-
-const LS_PROG = 'bds_prog';
+// ---------- persistence (single store: {bank: {qi: {c, w, f}}}) ----------
 const getProg = () => JSON.parse(localStorage.getItem(LS_PROG) || '{}');
-const markProg = (bankKey, qi, right) => {
+const saveProg = p => { try { localStorage.setItem(LS_PROG, JSON.stringify(p)); } catch {} };
+const markResult = (bankKey, qi, right) => {
   const p = getProg();
-  p[bankKey] = p[bankKey] || {};
-  const e = p[bankKey][qi] = p[bankKey][qi] || [0, 0];
-  e[right ? 0 : 1]++;
-  try { localStorage.setItem(LS_PROG, JSON.stringify(p)); } catch {}
+  const b = p[bankKey] = p[bankKey] || {};
+  const e = b[qi] = b[qi] || { c: 0, w: 0, f: 0 };
+  right ? e.c++ : e.w++;
+  e.f = right ? 0 : 1;
+  saveProg(p);
 };
+const wrongIdx = bankKey =>
+  Object.entries(getProg()[bankKey] || {}).filter(([, e]) => e.f).map(([qi]) => +qi).sort((a, b) => a - b);
 const bankProg = bankKey => {
   const es = Object.values(getProg()[bankKey] || {});
-  const c = es.reduce((s, e) => s + e[0], 0), n = es.reduce((s, e) => s + e[0] + e[1], 0);
+  const c = es.reduce((s, e) => s + e.c, 0), n = es.reduce((s, e) => s + e.c + e.w, 0);
   return { seen: es.length, acc: n ? Math.round(c / n * 100) : 0 };
 };
 const progTag = () => {
   const e = (getProg()[state.bank] || {})[state.origIdx ? state.origIdx[state.idx] : state.idx];
   if (!e) return '';
-  const color = e[1] && !e[0] ? '#f06a6a' : e[1] ? '#ffd166' : '#3dd68c';
-  return ` · <span style="color:${color}">✓${e[0]} ✗${e[1]}</span>`;
+  const color = e.w && !e.c ? '#f06a6a' : e.w ? '#ffd166' : '#3dd68c';
+  return ` · <span style="color:${color}">✓${e.c} ✗${e.w}</span>`;
 };
+
+// one-time migration from the old separate wrong-answer store
+(function migrateWrong() {
+  const raw = localStorage.getItem('bds_wrong');
+  if (!raw) return;
+  try {
+    const w = JSON.parse(raw), p = getProg();
+    for (const b in w) {
+      p[b] = p[b] || {};
+      for (const qi in w[b]) {
+        const e = p[b][qi] = p[b][qi] || { c: 0, w: 0, f: 0 };
+        e.f = 1; if (!e.w) e.w = 1;
+      }
+    }
+    saveProg(p);
+  } catch {}
+  localStorage.removeItem('bds_wrong');
+})();
 
 const getHist = () => JSON.parse(localStorage.getItem(LS_HIST) || '[]');
 const pushHist = e => {
@@ -118,7 +130,6 @@ const fmtDate = t => new Date(t).toLocaleString('vi-VN', { day: '2-digit', month
 function home() {
   clearInterval(state.timer);
   header('');
-  const w = getWrong();
   const sess = getSession();
   const hist = getHist();
   app.innerHTML = `
@@ -135,7 +146,7 @@ function home() {
     <div class="bank-grid">
       ${Object.keys(BANKS).map(k => {
         const n = BANKS[k].qs.length;
-        const wn = Object.keys(w[k] || {}).length;
+        const wn = wrongIdx(k).length;
         const best = Math.max(0, ...hist.filter(h => h.bank === k).map(h => h.pct));
         const prog = bankProg(k);
         return `<div class="bank-card" onclick="pickBank('${k}')">
@@ -159,12 +170,12 @@ function pickBank(k) {
   clearInterval(state.timer);
   state.bank = k;
   const n = BANKS[k].qs.length;
-  const w = getWrong()[k] || {};
+  const wn = wrongIdx(k).length;
   const sess = getSession();
   header(BANKS[k].name);
   app.innerHTML = `
     <h2 style="margin-bottom:6px;font-size:1.1rem">${BANKS[k].name}</h2>
-    <p class="stats">${n} câu · ${Object.keys(w).length} câu từng làm sai${(() => { const p = bankProg(k); return p.seen ? ` · đã làm ${p.seen} · ${p.acc}% đúng` : ''; })()}</p>
+    <p class="stats">${n} câu · ${wn} câu từng làm sai${(() => { const p = bankProg(k); return p.seen ? ` · đã làm ${p.seen} · ${p.acc}% đúng` : ''; })()}</p>
     ${sess && sess.bank === k ? `<div class="rev-item" style="border-color:#6ea8fe;margin-bottom:12px">
       ⏸ Có phiên ${sess.mode === 'mock' ? 'thi thử' : sess.mode === 'quiz' ? 'luyện tập' : 'học'} đang dở — ${sessProgress(sess)}
       <div class="mode-row" style="margin-top:8px"><button class="btn sm" onclick="resumeSession()">▶ Tiếp tục</button></div>
@@ -173,7 +184,7 @@ function pickBank(k) {
       <button class="btn" onclick="startStudy()">📖 Học (xem đáp án)</button>
       <button class="btn" onclick="quizMenu()">✏️ Luyện tập</button>
       <button class="btn" onclick="startMock()">⏱ Thi thử (50 câu / 60')</button>
-      ${Object.keys(w).length ? `<button class="btn ghost" onclick="startWrong()">🔁 Ôn ${Object.keys(w).length} câu sai</button>` : ''}
+      ${wn ? `<button class="btn ghost" onclick="startWrong()">🔁 Ôn ${wn} câu sai</button>` : ''}
     </div>
     <label class="check"><input type="checkbox" ${state.shuffleOpt ? 'checked' : ''} onchange="setShuf(this.checked)"> Xáo trộn thứ tự đáp án (khuyên dùng)</label>
     <div class="mode-row"><button class="btn ghost sm" onclick="home()">← Chọn bộ khác</button></div>`;
@@ -232,9 +243,7 @@ function studyAns(i) {
   state.answers[state.idx] = i;
   state.reveal = true;
   const oi = state.origIdx ? state.origIdx[state.idx] : state.idx;
-  const right = i === state.qs[state.idx].a;
-  markWrong(state.bank, oi, !right);
-  markProg(state.bank, oi, right);
+  markResult(state.bank, oi, i === state.qs[state.idx].a);
   showStudy();
 }
 function nav(d) {
@@ -314,8 +323,7 @@ function answer(i) {
   const right = i === q.a;
   if (right) state.score++;
   const oi = state.origIdx ? state.origIdx[state.idx] : state.idx;
-  markWrong(state.bank, oi, !right);
-  markProg(state.bank, oi, right);
+  markResult(state.bank, oi, right);
   showQuiz();
 }
 function qnav(d) { state.idx = Math.min(state.qs.length - 1, Math.max(0, state.idx + d)); showQuiz(); }
@@ -413,11 +421,7 @@ function finishMock() {
   state.qs.forEach((q, i) => {
     const right = state.answers[i] === q.a;
     if (right) state.score++;
-    if (state.answers[i] !== undefined) {
-      const oi = state.origIdx ? state.origIdx[i] : i;
-      markWrong(state.bank, oi, !right);
-      markProg(state.bank, oi, right);
-    }
+    if (state.answers[i] !== undefined) markResult(state.bank, state.origIdx ? state.origIdx[i] : i, right);
   });
   state.done = true;
   clearSession();
@@ -449,8 +453,7 @@ function mockResult() {
 
 // ---------- WRONG-QUESTIONS REVIEW ----------
 function startWrong() {
-  const w = getWrong()[state.bank] || {};
-  const idx = Object.keys(w).map(Number).sort((a, b) => a - b);
+  const idx = wrongIdx(state.bank);
   if (!idx.length) return pickBank(state.bank);
   startStudy(idx);
 }
