@@ -60,6 +60,10 @@ button { font-family: inherit; }
 .tag { font-size: .72rem; background: #232a3a; padding: 3px 9px; border-radius: 20px; color: #8b93a5; }
 .stats { font-size: .8rem; color: #8b93a5; margin-top: 8px; }
 
+footer { max-width: 760px; margin: 0 auto; padding: 0 16px 28px; text-align: center; font-size: .75rem; color: #566072; }
+footer a { color: #6ea8fe; text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+
 @media (max-width: 560px) {
   .bank-grid { grid-template-columns: 1fr; }
   .qcard { padding: 16px; }
