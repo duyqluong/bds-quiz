@@ -165,34 +165,52 @@ function startStudy(idxList) {
   const raw = idxList ? idxList.map(i => BANKS[state.bank].qs[i]) : BANKS[state.bank].qs;
   state.qs = prepQuestions(raw);
   state.origIdx = idxList || BANKS[state.bank].qs.map((_, i) => i);
-  state.idx = 0; state.reveal = false;
+  state.idx = 0; state.reveal = false; state.answers = {};
   showStudy();
 }
 
 function showStudy() {
   const q = state.qs[state.idx];
+  const my = state.answers[state.idx];
+  const rev = state.reveal || my !== undefined;
+  const answered = Object.keys(state.answers).length;
+  const right = Object.entries(state.answers).filter(([i, a]) => a === state.qs[i].a).length;
   header(`${BANKS[state.bank].name} — Học`);
   saveSession();
   app.innerHTML = `
     <div class="topbar">
       <button class="btn ghost sm" onclick="pickBank('${state.bank}')">← Menu</button>
-      <span class="tag">Câu ${state.idx + 1} / ${state.qs.length}</span>
+      <span class="tag">Câu ${state.idx + 1} / ${state.qs.length}${answered ? ` · <span style="color:#3dd68c">✓ ${right}</span> · <span style="color:#f06a6a">✗ ${answered - right}</span>` : ''}</span>
     </div>
     <div class="progress"><div style="width:${(state.idx + 1) / state.qs.length * 100}%"></div></div>
     <div class="qcard">
       <div class="qnum">Câu ${state.origIdx ? state.origIdx[state.idx] + 1 : state.idx + 1}</div>
       <div class="qtext">${esc(q.q)}</div>
-      ${q.o.map((o, i) => `
-        <div class="opt ${state.reveal ? (i === q.a ? 'correct' : 'dim') : ''}" onclick="state.reveal=true;showStudy()">
+      ${q.o.map((o, i) => {
+        let cls = '';
+        if (rev) {
+          if (i === q.a) cls = 'correct';
+          else if (i === my) cls = 'wrong';
+          else cls = 'dim';
+        }
+        return `<div class="opt ${cls}" onclick="studyAns(${i})">
           <span class="let">${LETTERS[i]}.</span> ${esc(o)}
-        </div>`).join('')}
-      ${state.reveal ? `<div class="ans-reveal">Đáp án: ${LETTERS[q.a]}</div>` : ''}
+        </div>`;
+      }).join('')}
+      ${rev ? `<div class="ans-reveal">${my !== undefined ? (my === q.a ? '✓ Đúng! ' : '✗ Sai. ') : ''}Đáp án: ${LETTERS[q.a]}</div>` : ''}
     </div>
     <div class="nav-row">
       <button class="btn ghost" ${state.idx === 0 ? 'disabled' : ''} onclick="nav(-1)">← Trước</button>
       <button class="btn ghost" onclick="navRnd()">🎲 Ngẫu nhiên</button>
       <button class="btn" onclick="nav(1)">Sau →</button>
     </div>`;
+}
+function studyAns(i) {
+  if (state.answers[state.idx] !== undefined) { state.reveal = true; showStudy(); return; }
+  state.answers[state.idx] = i;
+  state.reveal = true;
+  markWrong(state.bank, state.origIdx ? state.origIdx[state.idx] : state.idx, i !== state.qs[state.idx].a);
+  showStudy();
 }
 function nav(d) {
   state.idx = (state.idx + d + state.qs.length) % state.qs.length;
