@@ -23,6 +23,21 @@ const markWrong = (bankKey, qi, wrong) => {
   setWrong(w);
 };
 
+const LS_PROG = 'bds_prog';
+const getProg = () => JSON.parse(localStorage.getItem(LS_PROG) || '{}');
+const markProg = (bankKey, qi, right) => {
+  const p = getProg();
+  p[bankKey] = p[bankKey] || {};
+  const e = p[bankKey][qi] = p[bankKey][qi] || [0, 0];
+  e[right ? 0 : 1]++;
+  try { localStorage.setItem(LS_PROG, JSON.stringify(p)); } catch {}
+};
+const bankProg = bankKey => {
+  const es = Object.values(getProg()[bankKey] || {});
+  const c = es.reduce((s, e) => s + e[0], 0), n = es.reduce((s, e) => s + e[0] + e[1], 0);
+  return { seen: es.length, acc: n ? Math.round(c / n * 100) : 0 };
+};
+
 const getHist = () => JSON.parse(localStorage.getItem(LS_HIST) || '[]');
 const pushHist = e => {
   const h = getHist();
@@ -116,9 +131,10 @@ function home() {
         const n = BANKS[k].qs.length;
         const wn = Object.keys(w[k] || {}).length;
         const best = Math.max(0, ...hist.filter(h => h.bank === k).map(h => h.pct));
+        const prog = bankProg(k);
         return `<div class="bank-card" onclick="pickBank('${k}')">
           <h3>${BANKS[k].name}</h3>
-          <p><span class="cnt">${n}</span> câu hỏi${wn ? ` · <span style="color:#f06a6a">${wn} câu sai cần ôn</span>` : ''}${best ? ` · điểm cao nhất ${best}` : ''}</p>
+          <p><span class="cnt">${n}</span> câu hỏi${prog.seen ? ` · đã làm ${prog.seen} · <span class="${prog.acc >= 70 ? 'right' : 'you'}">${prog.acc}% đúng</span>` : ''}${wn ? ` · <span style="color:#f06a6a">${wn} câu sai cần ôn</span>` : ''}${best ? ` · điểm cao nhất ${best}` : ''}</p>
         </div>`;
       }).join('')}
     </div>
@@ -142,7 +158,7 @@ function pickBank(k) {
   header(BANKS[k].name);
   app.innerHTML = `
     <h2 style="margin-bottom:6px;font-size:1.1rem">${BANKS[k].name}</h2>
-    <p class="stats">${n} câu · ${Object.keys(w).length} câu từng làm sai</p>
+    <p class="stats">${n} câu · ${Object.keys(w).length} câu từng làm sai${(() => { const p = bankProg(k); return p.seen ? ` · đã làm ${p.seen} · ${p.acc}% đúng` : ''; })()}</p>
     ${sess && sess.bank === k ? `<div class="rev-item" style="border-color:#6ea8fe;margin-bottom:12px">
       ⏸ Có phiên ${sess.mode === 'mock' ? 'thi thử' : sess.mode === 'quiz' ? 'luyện tập' : 'học'} đang dở — ${sessProgress(sess)}
       <div class="mode-row" style="margin-top:8px"><button class="btn sm" onclick="resumeSession()">▶ Tiếp tục</button></div>
@@ -209,7 +225,10 @@ function studyAns(i) {
   if (state.answers[state.idx] !== undefined) { state.reveal = true; showStudy(); return; }
   state.answers[state.idx] = i;
   state.reveal = true;
-  markWrong(state.bank, state.origIdx ? state.origIdx[state.idx] : state.idx, i !== state.qs[state.idx].a);
+  const oi = state.origIdx ? state.origIdx[state.idx] : state.idx;
+  const right = i === state.qs[state.idx].a;
+  markWrong(state.bank, oi, !right);
+  markProg(state.bank, oi, right);
   showStudy();
 }
 function nav(d) {
@@ -288,7 +307,9 @@ function answer(i) {
   state.answers[state.idx] = i;
   const right = i === q.a;
   if (right) state.score++;
-  markWrong(state.bank, state.origIdx ? state.origIdx[state.idx] : state.idx, !right);
+  const oi = state.origIdx ? state.origIdx[state.idx] : state.idx;
+  markWrong(state.bank, oi, !right);
+  markProg(state.bank, oi, right);
   showQuiz();
 }
 function qnav(d) { state.idx = Math.min(state.qs.length - 1, Math.max(0, state.idx + d)); showQuiz(); }
@@ -386,7 +407,11 @@ function finishMock() {
   state.qs.forEach((q, i) => {
     const right = state.answers[i] === q.a;
     if (right) state.score++;
-    if (state.answers[i] !== undefined) markWrong(state.bank, state.origIdx ? state.origIdx[i] : i, !right);
+    if (state.answers[i] !== undefined) {
+      const oi = state.origIdx ? state.origIdx[i] : i;
+      markWrong(state.bank, oi, !right);
+      markProg(state.bank, oi, right);
+    }
   });
   state.done = true;
   clearSession();
